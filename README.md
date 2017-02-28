@@ -7,6 +7,5 @@ GrabTriangles.exe D:\Downloads\doom3-640x480\tracefile.txt triangles.txt
 19.223s: Processed line: 300000  
 25.657s: Processed line: 400000  
 ...  
-225.657s: Processed line: 24200000  
-226.890s: Done.  
-
+1605.657s: Processed line: 24200000  
+1606.890s: Done.  
