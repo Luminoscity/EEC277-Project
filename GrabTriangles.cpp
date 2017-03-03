@@ -43,6 +43,7 @@ int main(int argc, char *argv[]) {
    CheckArgs(argc, argv);
    
    const char geometryString[] = "glProgramEnvParameter4fvARB(GL_VERTEX_PROGRAM_ARB";
+   const char frameString[] = "# Frame";
    const char coordString[] = "0x";
    ifstream inFile(argv[1]);
    ofstream outFile(argv[2]);
@@ -60,12 +61,12 @@ int main(int argc, char *argv[]) {
       if (pos != string::npos) {
          int idx = 0;
          while ((pos = line.find(coordString, pos + 1)) != string::npos &&
-                idx < COORD_COUNT) {
+            idx < COORD_COUNT) {
             uint32_t number = (uint32_t)std::stoul(line.substr(pos), (size_t*)0, 16);
             coords[idx++] = number;
          }
          if (dupLines == 0 || (coords != zero &&
-             std::find(lines.begin(), lines.end(), coords) == lines.end())) {
+            std::find(lines.begin(), lines.end(), coords) == lines.end())) {
             for (int j = 0; j < COORD_COUNT; ++j) {
                float f = *(float *)(&coords[j]);
                outFile << f << " ";
@@ -78,6 +79,8 @@ int main(int argc, char *argv[]) {
                lines.erase(lines.begin());
          }
       }
+      else if ((pos = line.find(frameString, 0)) != string::npos)
+         lines.clear();
       if (++i % 100000 == 0) {
          printf("%0.3fs: Processed line: %d\n", TIME(), i);
       }
