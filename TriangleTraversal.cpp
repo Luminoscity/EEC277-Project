@@ -31,6 +31,7 @@
 using std::string;
 using std::vector;
 using std::cout;
+using std::setw;
 using std::ifstream;
 using std::ofstream;
 using std::stringstream;
@@ -101,33 +102,27 @@ int main(int argc, char *argv[]) {
    SystemInfo sys = {UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false};
    ifstream testFile(argv[1]);
 
-   TriList geometry = GetTriangles(testFile, sys);
-   CheckTriangleCoordinates(geometry);
+   TriList origGeometry = GetTriangles(testFile, sys);
+   TriList geometry = origGeometry;
+   CheckTriangleCoordinates(origGeometry);
    cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
         << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
 
-   printf("\n----------INPUT----------\n");
-   int i = 1;
-   for (auto& tri : geometry) {
-      cout << "Triangle " << i++ << "\n";
-      int j = 1;
-      for (auto& vert : tri.v) {
-         printf("---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
-                j++, vert.x, vert.y, vert.color.r, vert.color.g, vert.color.b,
-                vert.color.a);
-      }
-   }
-
    SnapToGrid(geometry, sys);
-   printf("\n----------Snapped to Grid----------\n");
-   i = 1;
-   for (auto& tri : geometry) {
-      cout << "Triangle " << i++ << "\n";
-      int j = 1;
-      for (auto& vert : tri.v) {
-         printf("---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X\n",
-            j++, vert.x, vert.y, vert.color.r, vert.color.g, vert.color.b,
-            vert.color.a);
+   printf("\n-----------------INPUT------------------------"
+          "----------------Snapped to Grid--------------\n");
+   TriList *og = &origGeometry;
+   TriList *g = &geometry;
+   for (int i = 0; i < g->size(); ++i) {
+      printf("Triangle %-37d Triangle %d\n", i, i);
+      for (int j = 0; j < 3; ++j) {
+         printf("---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X   "
+                "---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X\n",
+                j, (*og)[i].v[j].x, (*og)[i].v[j].y, (*og)[i].v[j].color.r,
+                (*og)[i].v[j].color.g, (*og)[i].v[j].color.b,
+                (*og)[i].v[j].color.a, j, (*g)[i].v[j].x, (*g)[i].v[j].y,
+                (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
+                (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
       }
    }
 
