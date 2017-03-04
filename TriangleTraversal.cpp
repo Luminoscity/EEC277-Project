@@ -105,16 +105,20 @@ int main(int argc, char *argv[]) {
    clock_t t1 = clock();
    SystemInfo sys = { UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false };
    ifstream testFile(argv[1]);
+   bool printDebug = false;
+
+   if (argc > 5)
+      printDebug = toupper(argv[5][0]) == 'Y';
 
    TriList origGeometry = GetTriangles(testFile, sys);
    TriList geometry = origGeometry;
    CheckTriangleCoordinates(origGeometry);
    cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
-      << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
+        << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n")
+        << "Debug Output: " << (printDebug ? "Yes\n" : "No\n");
 
-   SnapToGrid(geometry, sys);
-   const bool printDebug = true;         // Change to true to see the results
-                                          // of SnapToGrid
+   SnapToGrid(geometry, sys);    //geometry modified
+
    if (printDebug) {
       printf("\n-----------------INPUT------------------------"
              "----------------Snapped to Grid--------------\n");
@@ -131,6 +135,7 @@ int main(int argc, char *argv[]) {
                    (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
                    (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
       }
+      printf("\n");
    }
 
    TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
@@ -313,9 +318,9 @@ void CheckArgs(int argc, char *argv[]){
    char tests[] = "Tests:\n1: Scanline\n2: Backtrack\n3: ZigZag\n"
                   "0: All\n";
    const int numTests = 3;
-   if (argc != 5) {
+   if (argc < 5 || argc > 6) {
       fprintf(stderr, "Usage: %s geometryFile screenWidth screenHeight testNum"
-              "\n%s", argv[0], tests);
+              "[debugY/N]\n%s", argv[0], tests);
       exit(-1);
    }
    ifstream file1(argv[1]);

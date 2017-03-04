@@ -14,9 +14,10 @@ Will ignore all 0,0,0,0 entries and ignore duplicates within a single frame with
 
 
 -------------Example run of TriangleTraversal------------------  
-TriangleTraversal.exe D:\Documents\EEC277-Project\exampleDisjointTriangles.txt 640 480 0
+TriangleTraversal.exe D:\Documents\EEC277-Project\exampleDisjointTriangles.txt 640 480 0 yes
 Screen: 640 x 480
 Triangle Type: Disjoint
+Debug Output: Yes
 
 -----------------INPUT----------------------------------------Snapped to Grid--------------
 Triangle 0                                     Triangle 0
@@ -27,6 +28,7 @@ Triangle 1                                     Triangle 1
 ---Vertex 0: 0.678159 0.732841 00 00 FF FF   ---Vertex 0: 434.000000 351.750000 00 00 FF FF
 ---Vertex 1: 0.815926 0.915926 00 FF 00 FF   ---Vertex 1: 522.250000 439.750000 00 FF 00 FF
 ---Vertex 2: 0.000001 0.999999 FF 00 00 FF   ---Vertex 2:   0.000000 480.000000 FF 00 00 FF
+
 Overdraw for Scanline: 0
 Overdraw for Backtrack: 0
 Overdraw for ZigZag: 0
