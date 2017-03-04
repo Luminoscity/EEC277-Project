@@ -11,3 +11,11 @@ GrabTriangles.exe D:\Downloads\doom3-640x480\tracefile.txt triangles.txt 20
 1607.650s: Done.  
 
 Will ignore all 0,0,0,0 entries and ignore duplicates within a single frame within n lines of each other in the tracefile
+
+
+-------------Example run of TriangleTraversal------------------  
+TriangleTraversal.exe D:\Documents\EEC277-Project\exampleTriangles.txt 160 90
+Screen: 160 x 90
+0.002s: Done.
+
+Will eventually take test number as input and output amount of overdraw for each test run
