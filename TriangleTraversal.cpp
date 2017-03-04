@@ -45,6 +45,7 @@ using std::stringstream;
 typedef struct SystemInfo {
    uint32_t screenW;
    uint32_t screenH;
+   bool disjoint;
 } SystemInfo;
 
 typedef struct Color {
@@ -76,16 +77,20 @@ typedef vector<Fragment> FragList;
 
 #pragma region Declarations
 #define TIME(__startTime) (((float)clock() - (float)(__startTime)) / CLOCKS_PER_SEC)
+#define UCAST(__x) (static_cast<uint32_t>(__x))
+#define FCAST(__x) (static_cast<float>(__x))
 #define COORD_COUNT 4
-#define RED_OFFSET 6
-#define GRN_OFFSET 4
-#define BLU_OFFSET 2
+#define RED_OFFSET 24
+#define GRN_OFFSET 16
+#define BLU_OFFSET 8
 
 unsigned TestScanline(const TriList &geometry, FragList &fragments);
 unsigned TestZigZag(const TriList &geometry, FragList &fragments);
 unsigned TestBacktrack(const TriList &geometry, FragList &fragments);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
+TriList GetTriangles(ifstream &file, SystemInfo &sys);
+void CheckTriangleCoordinates(TriList &geometry);
 void CheckArgs(int argc, char *argv[]);
 #pragma endregion
 
@@ -93,9 +98,38 @@ void CheckArgs(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
    CheckArgs(argc, argv);
    clock_t t1 = clock();
-   SystemInfo sys = {(uint32_t)atoi(argv[2]), (uint32_t)atoi(argv[3])};
+   SystemInfo sys = {UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false};
+   ifstream testFile(argv[1]);
 
-   cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n";
+   TriList geometry = GetTriangles(testFile, sys);
+   CheckTriangleCoordinates(geometry);
+   cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
+        << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
+
+   printf("\n----------INPUT----------\n");
+   int i = 1;
+   for (auto& tri : geometry) {
+      cout << "Triangle " << i++ << "\n";
+      int j = 1;
+      for (auto& vert : tri.v) {
+         printf("---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
+                j++, vert.x, vert.y, vert.color.r, vert.color.g, vert.color.b,
+                vert.color.a);
+      }
+   }
+
+   SnapToGrid(geometry, sys);
+   printf("\n----------Snapped to Grid----------\n");
+   i = 1;
+   for (auto& tri : geometry) {
+      cout << "Triangle " << i++ << "\n";
+      int j = 1;
+      for (auto& vert : tri.v) {
+         printf("---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X\n",
+            j++, vert.x, vert.y, vert.color.r, vert.color.g, vert.color.b,
+            vert.color.a);
+      }
+   }
 
    printf("%0.3fs: Done.\n", TIME(t1));
 
@@ -126,7 +160,7 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
 #pragma endregion
 
 #pragma region Helper Functions
-// changes the given list of triangles so that each vertex lies on a grid location
+// Changes the given list of triangles so that each vertex lies on a grid location
 // each pixel location has 25 allowed vertex coordinates
 // X---X---X---X---X
 // |               |
@@ -137,8 +171,17 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
 // X   X   X   X   X
 // |               |
 // X---X---X---X---X
+// Outputs 
 void SnapToGrid(TriList &geometry, SystemInfo sys) {
-
+   const float snapFactor = 4.0; // the maximum allowed fraction of a pixel length
+   for (auto& tri : geometry) {
+      for (auto& vert : tri.v) {
+         uint32_t scaledXCoord = UCAST(vert.x * snapFactor * sys.screenW + 0.5);
+         uint32_t scaledYCoord = UCAST(vert.y * snapFactor * sys.screenH + 0.5);
+         vert.x = FCAST(scaledXCoord) / snapFactor;
+         vert.y = FCAST(scaledYCoord) / snapFactor;
+      }
+   }
 }
 
 Color HexToColor(uint32_t hex) {
@@ -150,6 +193,78 @@ Color HexToColor(uint32_t hex) {
    color.a = hex & 0xFF;
 
    return color;
+}
+
+TriList GetTriangles(ifstream &file, SystemInfo &sys) {
+   TriList triangles;
+   uint32_t colorHex;
+   string line;
+   getline(file, line);
+   sys.disjoint = toupper(line[0]) == 'D';
+   
+   if (sys.disjoint) {
+      while (getline(file, line)) {
+         if (line.find(",") == string::npos) {
+            fprintf(stderr, "No commas found in list of disjoint triangles.\n");
+            exit(-1);
+         }
+         stringstream ss;
+         Triangle tri;
+         ss.str(line);
+         ss >> tri.v[0].x >> tri.v[0].y >> std::hex >> colorHex;
+         tri.v[0].color = HexToColor(colorHex);
+         ss.ignore(2, ',');
+         ss >> tri.v[1].x >> tri.v[1].y >> std::hex >> colorHex;
+         tri.v[1].color = HexToColor(colorHex);
+         ss.ignore(2, ',');
+         ss >> tri.v[2].x >> tri.v[2].y >> std::hex >> colorHex;
+         tri.v[2].color = HexToColor(colorHex);
+         triangles.push_back(tri);
+      }
+   }
+   else {
+      unsigned count = 0;
+      while (getline(file, line)) {
+         if (line.find(",") != string::npos) {
+            fprintf(stderr, "Commas found in list of triangle strips.\n");
+            exit(-1);
+         }
+         stringstream ss;
+         Triangle tri;
+         ss.str(line);
+         if (count > 1) {
+            tri.v[0] = tri.v[1];
+            tri.v[1] = tri.v[2];
+            ss >> tri.v[2].x >> tri.v[2].y >> std::hex >> colorHex;
+            tri.v[2].color = HexToColor(colorHex);
+            triangles.push_back(tri);
+         }
+         else {
+            ss >> tri.v[count].x >> tri.v[count].y >> std::hex >> colorHex;
+            tri.v[count].color = HexToColor(colorHex);
+         }
+         ++count;
+      }
+   }
+
+   return triangles;
+}
+
+void CheckTriangleCoordinates(TriList &geometry) {
+   for (auto& tri : geometry) {
+      for (auto& vert : tri.v) {
+         if (vert.x < 0.0 || vert.x > 1.0) {
+            fprintf(stderr, "Vertex coordinate %f outside the range 0.0-1.0\n",
+                    vert.x);
+            exit(-1);
+         }
+         if (vert.y < 0.0 || vert.y > 1.0) {
+            fprintf(stderr, "Vertex coordinate %f outside the range 0.0-1.0\n",
+                    vert.y);
+            exit(-1);
+         }
+      }
+   }
 }
 
 void CheckArgs(int argc, char *argv[]){
