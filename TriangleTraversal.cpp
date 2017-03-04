@@ -127,7 +127,16 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
 
 #pragma region Helper Functions
 // changes the given list of triangles so that each vertex lies on a grid location
-// 
+// each pixel location has 25 allowed vertex coordinates
+// X---X---X---X---X
+// |               |
+// X   X   X   X   X
+// |               |
+// X   X   X   X   X
+// |               |
+// X   X   X   X   X
+// |               |
+// X---X---X---X---X
 void SnapToGrid(TriList &geometry, SystemInfo sys) {
 
 }
