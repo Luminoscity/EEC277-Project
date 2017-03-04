@@ -138,6 +138,8 @@ int main(int argc, char *argv[]) {
 #pragma endregion
 
 #pragma region Tests
+//
+//
 unsigned TestScanline(const TriList &geometry, FragList &fragments) {
    unsigned overdraw = 0;
 
@@ -146,12 +148,16 @@ unsigned TestScanline(const TriList &geometry, FragList &fragments) {
    return overdraw;
 }
 
+//
+//
 unsigned TestZigZag(const TriList &geometry, FragList &fragments) {
    unsigned overdraw = 0;
 
    return overdraw;
 }
 
+//
+//
 unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
    unsigned overdraw = 0;
 
@@ -171,7 +177,9 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
 // X   X   X   X   X
 // |               |
 // X---X---X---X---X
-// Outputs 
+// Input vertex coordinates expected to be in the range 0.0 - 1.0
+// Output vertex coordinates will be on the scale 0.0 - ScreenWidth for x
+// and 0.0 - ScreenHeight for y, both rounded to the nearest 0.25 pixels
 void SnapToGrid(TriList &geometry, SystemInfo sys) {
    const float snapFactor = 4.0; // the maximum allowed fraction of a pixel length
    for (auto& tri : geometry) {
@@ -184,6 +192,7 @@ void SnapToGrid(TriList &geometry, SystemInfo sys) {
    }
 }
 
+// converts a 32-bit integer representation of a coor value to a Color type
 Color HexToColor(uint32_t hex) {
    Color color;
 
@@ -195,6 +204,13 @@ Color HexToColor(uint32_t hex) {
    return color;
 }
 
+// reads all the triangle vertex coordinates from a file
+// expects disjoint format (3 vertices at a time): 
+// 0.0456 0.1789 FF0000FF, 0.2452 0.3123 00FF00FF, 0.4789 0.5675 0000FFFF
+// and strips format (1 vertex at a time):
+// 0.0456 0.1789 FF0000FF
+// 0.2452 0.3123 00FF00FF
+// 0.4789 0.5675 0000FFFF
 TriList GetTriangles(ifstream &file, SystemInfo &sys) {
    TriList triangles;
    uint32_t colorHex;
@@ -250,6 +266,7 @@ TriList GetTriangles(ifstream &file, SystemInfo &sys) {
    return triangles;
 }
 
+//checks that the x and y vertex coordinates are in the range 0.0 - 1.0
 void CheckTriangleCoordinates(TriList &geometry) {
    for (auto& tri : geometry) {
       for (auto& vert : tri.v) {
@@ -267,6 +284,7 @@ void CheckTriangleCoordinates(TriList &geometry) {
    }
 }
 
+// checks command-line arguments for validity
 void CheckArgs(int argc, char *argv[]){
    if(argc != 4) {
       fprintf(stderr, "Usage: %s geometryFile screenWidth screenHeight\n", argv[0]);
