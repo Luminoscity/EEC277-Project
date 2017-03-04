@@ -6,7 +6,7 @@
  * March 2017
  * Tests the following rasterization paths (triangle traversal methods)
  * against an inputted set of triangle vertex coordinates:
- * Scanline, ZigZag, Backtrack
+ * Scanline, Backtrack, ZigZag
  */
 #pragma endregion
 
@@ -74,20 +74,24 @@ typedef struct Triangle {
 
 typedef vector<Triangle> TriList;
 typedef vector<Fragment> FragList;
+typedef unsigned (*TestPtr)(const TriList &, FragList &, SystemInfo);
 #pragma endregion
 
 #pragma region Declarations
 #define TIME(__startTime) (((float)clock() - (float)(__startTime)) / CLOCKS_PER_SEC)
 #define UCAST(__x) (static_cast<uint32_t>(__x))
 #define FCAST(__x) (static_cast<float>(__x))
-#define COORD_COUNT 4
+#define NUM_TESTS 3
 #define RED_OFFSET 24
 #define GRN_OFFSET 16
 #define BLU_OFFSET 8
 
-unsigned TestScanline(const TriList &geometry, FragList &fragments);
-unsigned TestZigZag(const TriList &geometry, FragList &fragments);
-unsigned TestBacktrack(const TriList &geometry, FragList &fragments);
+unsigned TestScanline(const TriList &geometry, FragList &fragments,
+                      SystemInfo sys);
+unsigned TestZigZag(const TriList &geometry, FragList &fragments,
+                    SystemInfo sys);
+unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
+                       SystemInfo sys);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 TriList GetTriangles(ifstream &file, SystemInfo &sys);
@@ -99,31 +103,53 @@ void CheckArgs(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
    CheckArgs(argc, argv);
    clock_t t1 = clock();
-   SystemInfo sys = {UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false};
+   SystemInfo sys = { UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false };
    ifstream testFile(argv[1]);
 
    TriList origGeometry = GetTriangles(testFile, sys);
    TriList geometry = origGeometry;
    CheckTriangleCoordinates(origGeometry);
    cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
-        << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
+      << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
 
    SnapToGrid(geometry, sys);
-   printf("\n-----------------INPUT------------------------"
-          "----------------Snapped to Grid--------------\n");
-   TriList *og = &origGeometry;
-   TriList *g = &geometry;
-   for (int i = 0; i < g->size(); ++i) {
-      printf("Triangle %-37d Triangle %d\n", i, i);
-      for (int j = 0; j < 3; ++j) {
-         printf("---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X   "
-                "---Vertex %d: %9.6f %9.6f %02X %02X %02X %02X\n",
-                j, (*og)[i].v[j].x, (*og)[i].v[j].y, (*og)[i].v[j].color.r,
-                (*og)[i].v[j].color.g, (*og)[i].v[j].color.b,
-                (*og)[i].v[j].color.a, j, (*g)[i].v[j].x, (*g)[i].v[j].y,
-                (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
-                (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
+   const bool printDebug = true;         // Change to true to see the results
+                                          // of SnapToGrid
+   if (printDebug) {
+      printf("\n-----------------INPUT------------------------"
+             "----------------Snapped to Grid--------------\n");
+      TriList *og = &origGeometry;
+      TriList *g = &geometry;
+      for (unsigned i = 0; i < g->size(); ++i) {
+         printf("Triangle %-37d Triangle %d\n", i, i);
+         for (int j = 0; j < 3; ++j)
+            printf("---Vertex %d: %8.6f %8.6f %02X %02X %02X %02X   "
+                   "---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
+                   j, (*og)[i].v[j].x, (*og)[i].v[j].y, (*og)[i].v[j].color.r,
+                   (*og)[i].v[j].color.g, (*og)[i].v[j].color.b,
+                   (*og)[i].v[j].color.a, j, (*g)[i].v[j].x, (*g)[i].v[j].y,
+                   (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
+                   (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
       }
+   }
+
+   TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
+   string testStrings[] = {"Scanline", "Backtrack", "ZigZag"};
+   int test = atoi(argv[4]);
+   FragList outputs[NUM_TESTS];
+   unsigned results[NUM_TESTS];
+   if (test == 0) {
+      for (int i = 0; i < NUM_TESTS; ++i) {
+         results[i] = tests[i](geometry, outputs[i], sys);
+         cout << "Overdraw for " << testStrings[i] << ": " << results[i]
+              << "\n";
+      }
+   }
+   else {
+      --test;
+      results[test] = tests[test](geometry, outputs[test], sys);
+      cout << "Overdraw for " << testStrings[test] << ": " << results[test]
+           << "\n";
    }
 
    printf("%0.3fs: Done.\n", TIME(t1));
@@ -135,7 +161,8 @@ int main(int argc, char *argv[]) {
 #pragma region Tests
 //
 //
-unsigned TestScanline(const TriList &geometry, FragList &fragments) {
+unsigned TestScanline(const TriList &geometry, FragList &fragments,
+                      SystemInfo sys) {
    unsigned overdraw = 0;
 
 
@@ -145,7 +172,8 @@ unsigned TestScanline(const TriList &geometry, FragList &fragments) {
 
 //
 //
-unsigned TestZigZag(const TriList &geometry, FragList &fragments) {
+unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
+                       SystemInfo sys) {
    unsigned overdraw = 0;
 
    return overdraw;
@@ -153,7 +181,8 @@ unsigned TestZigZag(const TriList &geometry, FragList &fragments) {
 
 //
 //
-unsigned TestBacktrack(const TriList &geometry, FragList &fragments) {
+unsigned TestZigZag(const TriList &geometry, FragList &fragments,
+                    SystemInfo sys) {
    unsigned overdraw = 0;
 
    return overdraw;
@@ -281,17 +310,25 @@ void CheckTriangleCoordinates(TriList &geometry) {
 
 // checks command-line arguments for validity
 void CheckArgs(int argc, char *argv[]){
-   if(argc != 4) {
-      fprintf(stderr, "Usage: %s geometryFile screenWidth screenHeight\n", argv[0]);
+   char tests[] = "Tests:\n1: Scanline\n2: Backtrack\n3: ZigZag\n"
+                  "0: All\n";
+   const int numTests = 3;
+   if (argc != 5) {
+      fprintf(stderr, "Usage: %s geometryFile screenWidth screenHeight testNum"
+              "\n%s", argv[0], tests);
       exit(-1);
    }
    ifstream file1(argv[1]);
-   if(!file1.good()) {
+   if (!file1.good()) {
       fprintf(stderr, "Could not open file: %s\n", argv[1]);
       exit(-1);
    }
-   if(atoi(argv[2]) < 1 || atoi(argv[3]) < 1) {
+   if (atoi(argv[2]) < 1 || atoi(argv[3]) < 1) {
       fprintf(stderr, "Screen Width and Height must be greater than 0.\n");
+      exit(-1);
+   }
+   if (atoi(argv[4]) < 0 || atoi(argv[4]) > numTests) {
+      fprintf(stderr, "Invalid test number: %d\n%s", atoi(argv[4]), tests);
       exit(-1);
    }
 }
