@@ -178,13 +178,32 @@ int main(int argc, char *argv[]) {
 #pragma endregion
 
 #pragma region Tests
-//
-//
+// Traverses the triangle from bottom (or bottom-left)
+// to top using left-to-right scanlines beginning at the left edges
+// The first vertex is already in place to be determine the first pixel we
+// check because of MakeRrightHandedTriangle.
 unsigned TestScanline(const TriList &geometry, FragList &fragments,
                       SystemInfo sys) {
    unsigned overdraw = 0;
-   
-   
+   // master edge is the edge that will be used for all scanlines
+   // since it spans the entire height of the triangle
+   int mev1 = 0,  //master edge bottom vertex
+       mev2;      //master edge top vertex
+   float mEi,     //master edge insidedness
+         oEi,     //opposite edge insidedness
+         mdX,     //master edge dX
+         mdY,     //master edge dY
+         odX,     //opposite edge dX
+         odY;     //opposite edge dY
+
+   for (auto& tri : geometry) {  //compute fragments for every triangle
+      if (tri.v[2].y - tri.v[0].y > tri.v[1].y - tri.v[0].y)
+         mev2 = 2;
+      else
+         mev2 = 1;
+
+      //scanline algorithm
+   }
    
    return overdraw;
 }
