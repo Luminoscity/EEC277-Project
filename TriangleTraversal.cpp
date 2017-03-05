@@ -50,6 +50,7 @@ typedef struct SystemInfo {
    uint32_t screenW;
    uint32_t screenH;
    bool disjoint;
+   bool printDebug;
 } SystemInfo;
 
 typedef struct Color {
@@ -101,6 +102,7 @@ float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 void MakeRightHandedTriangle(Triangle &tri);
+bool isAreaZero(Triangle);
 double TriangleArea(Triangle tri);
 TriList GetTriangles(ifstream &file, SystemInfo &sys);
 void CheckTriangleCoordinates(TriList &geometry);
@@ -111,29 +113,30 @@ void CheckArgs(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
    CheckArgs(argc, argv);
    clock_t t1 = clock();
-   SystemInfo sys = { UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false };
+   SystemInfo sys = {UCAST(atoi(argv[2])), UCAST(atoi(argv[3])), false, false};
    ifstream testFile(argv[1]);
-   bool printDebug = false;
 
    if (argc > 5)
-      printDebug = toupper(argv[5][0]) == 'Y';
+      sys.printDebug = toupper(argv[5][0]) == 'Y';
 
    TriList origGeometry = GetTriangles(testFile, sys);
    TriList geometry = origGeometry;
    CheckTriangleCoordinates(origGeometry);
    cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
         << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n")
-        << "Debug Output: " << (printDebug ? "Yes\n" : "No\n");
+        << "Debug Output: " << (sys.printDebug ? "Yes\n" : "No\n");
 
    SnapToGrid(geometry, sys);    //geometry modified
+   
 
-   if (printDebug) {
+   if (sys.printDebug) {
       printf("\n-----------------INPUT------------------------"
              "----------------Snapped to Grid--------------\n");
       TriList *og = &origGeometry;
       TriList *g = &geometry;
       for (unsigned i = 0; i < g->size(); ++i) {
-         printf("Triangle %-37d Triangle %d\n", i, i);
+         printf("Triangle %-37d Triangle %d    ", i, i);
+         cout << "Area: " << TriangleArea((*g)[i]) << "\n";
          for (int j = 0; j < 3; ++j)
             printf("---Vertex %d: %8.6f %8.6f %02X %02X %02X %02X   "
                    "---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
@@ -145,6 +148,9 @@ int main(int argc, char *argv[]) {
       }
       printf("\n");
    }
+
+   // remove all zero area triangles
+   geometry.erase(std::remove_if(geometry.begin(), geometry.end(), isAreaZero), geometry.end());
 
    TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
    string testStrings[] = {"Scanline", "Backtrack", "ZigZag"};
@@ -241,13 +247,8 @@ void SnapToGrid(TriList &geometry, SystemInfo sys) {
          uint32_t scaledYCoord = UCAST(vert.y * snapFactor * sys.screenH + 0.5);
          vert.x = FCAST(scaledXCoord) / snapFactor;
          vert.y = FCAST(scaledYCoord) / snapFactor;
-         if (TriangleArea(*it) == 0.0)
-            toErase.push_back(it);
       }
    }
-   
-   for (auto& toDel : toErase)      //erase all zero area triangles
-      geometry.erase(toDel);
 }
 
 // converts a 32-bit integer representation of a coor value to a Color type
@@ -284,8 +285,12 @@ void MakeRightHandedTriangle(Triangle &tri) {
 // returns area of the triangle
 double TriangleArea(Triangle tri) {
    return abs((tri.v[0].x * (tri.v[1].y - tri.v[2].y) +
-               tri.v[2].x * (tri.v[3].y - tri.v[0].y) +
-               tri.v[3].x * (tri.v[0].y - tri.v[1].y)) / 2.0);
+               tri.v[1].x * (tri.v[2].y - tri.v[0].y) +
+               tri.v[2].x * (tri.v[0].y - tri.v[1].y)) / 2.0);
+}
+
+bool isAreaZero(Triangle tri) {
+   return TriangleArea(tri) == 0.0;
 }
 
 // reads all the triangle vertex coordinates from a file

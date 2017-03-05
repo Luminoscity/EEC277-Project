@@ -20,14 +20,14 @@ Triangle Type: Disjoint
 Debug Output: Yes
 
 -----------------INPUT----------------------------------------Snapped to Grid--------------
-Triangle 0                                     Triangle 0
+Triangle 0                                     Triangle 0    Area: 2056
 ---Vertex 0: 0.045612 0.178945 FF 00 00 FF   ---Vertex 0:  29.250000  86.000000 FF 00 00 FF
 ---Vertex 1: 0.245612 0.312345 00 FF 00 FF   ---Vertex 1: 157.250000 150.000000 00 FF 00 FF
----Vertex 2: 0.478945 0.567845 00 00 FF FF   ---Vertex 2: 306.500000 272.500000 00 00 FF FF
-Triangle 1                                     Triangle 1
+---Vertex 2: 0.578945 0.467845 00 00 FF FF   ---Vertex 2: 370.500000 224.500000 00 00 FF FF
+Triangle 1                                     Triangle 1    Area: 24755
 ---Vertex 0: 0.678159 0.732841 00 00 FF FF   ---Vertex 0: 434.000000 351.750000 00 00 FF FF
----Vertex 1: 0.815926 0.915926 00 FF 00 FF   ---Vertex 1: 522.250000 439.750000 00 FF 00 FF
----Vertex 2: 0.000001 0.999999 FF 00 00 FF   ---Vertex 2:   0.000000 480.000000 FF 00 00 FF
+---Vertex 1: 0.000001 0.999999 FF 00 00 FF   ---Vertex 1:   0.000000 480.000000 FF 00 00 FF
+---Vertex 2: 0.815926 0.915926 00 FF 00 FF   ---Vertex 2: 522.250000 439.750000 00 FF 00 FF
 
 Overdraw for Scanline: 0
 Overdraw for Backtrack: 0
