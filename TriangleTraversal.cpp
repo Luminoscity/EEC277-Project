@@ -12,6 +12,7 @@
 
 #pragma region Includes
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <unistd.h>
@@ -21,7 +22,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <string>
+#include <limits>
 #include <vector>
+#include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -92,8 +95,12 @@ unsigned TestZigZag(const TriList &geometry, FragList &fragments,
                     SystemInfo sys);
 unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
                        SystemInfo sys);
+float dX(Vertex v1, Vertex v2);
+float dY(Vertex v1, Vertex v2);
+float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
+void MakeRightHandedTriangle(Triangle &tri);
 TriList GetTriangles(ifstream &file, SystemInfo &sys);
 void CheckTriangleCoordinates(TriList &geometry);
 void CheckArgs(int argc, char *argv[]);
@@ -169,9 +176,9 @@ int main(int argc, char *argv[]) {
 unsigned TestScanline(const TriList &geometry, FragList &fragments,
                       SystemInfo sys) {
    unsigned overdraw = 0;
-
-
-
+   
+   
+   
    return overdraw;
 }
 
@@ -180,7 +187,7 @@ unsigned TestScanline(const TriList &geometry, FragList &fragments,
 unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
                        SystemInfo sys) {
    unsigned overdraw = 0;
-
+   
    return overdraw;
 }
 
@@ -189,8 +196,23 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
 unsigned TestZigZag(const TriList &geometry, FragList &fragments,
                     SystemInfo sys) {
    unsigned overdraw = 0;
-
+   
    return overdraw;
+}
+#pragma endregion
+
+#pragma region Test Related Functions
+float dX(Vertex v1, Vertex v2) {
+   return v2.x - v1.x;
+}
+
+float dY(Vertex v1, Vertex v2) {
+   return v2.y - v1.y;
+}
+
+float Ei(Vertex triV1, Vertex triV2, Vertex pixel) {
+   return (pixel.x - triV1.x) * (triV2.y - triV1.y) -
+          (pixel.y - triV1.y) * (triV2.x - triV1.x);
 }
 #pragma endregion
 
@@ -233,6 +255,25 @@ Color HexToColor(uint32_t hex) {
    return color;
 }
 
+// rearranges the order of the vertices so that going from vertex 1 to 2 to 3
+// forms a triangle in a counter-clockwise direction (right-handed)
+void MakeRightHandedTriangle(Triangle &tri) {
+   Vertex vert;
+   float ax = tri.v[1].x - tri.v[0].x,
+         ay = tri.v[1].y - tri.v[0].y,
+         bx = tri.v[2].x - tri.v[1].x,
+         by = tri.v[2].y - tri.v[1].y;
+
+   if (ay * bx < ax * by) {  //cross product
+      vert = tri.v[1];
+      tri.v[1] = tri.v[2];
+      tri.v[2] = vert;
+   }
+
+   assert((tri.v[1].y - tri.v[0].y) * (tri.v[2].x - tri.v[1].x) >=
+          (tri.v[1].x - tri.v[0].x) * (tri.v[2].y - tri.v[1].y));
+}
+
 // reads all the triangle vertex coordinates from a file
 // expects disjoint format (3 vertices at a time): 
 // 0.0456 0.1789 FF0000FF, 0.2452 0.3123 00FF00FF, 0.4789 0.5675 0000FFFF
@@ -264,6 +305,7 @@ TriList GetTriangles(ifstream &file, SystemInfo &sys) {
          ss.ignore(2, ',');
          ss >> tri.v[2].x >> tri.v[2].y >> std::hex >> colorHex;
          tri.v[2].color = HexToColor(colorHex);
+         MakeRightHandedTriangle(tri);
          triangles.push_back(tri);
       }
    }
@@ -282,6 +324,7 @@ TriList GetTriangles(ifstream &file, SystemInfo &sys) {
             tri.v[1] = tri.v[2];
             ss >> tri.v[2].x >> tri.v[2].y >> std::hex >> colorHex;
             tri.v[2].color = HexToColor(colorHex);
+            MakeRightHandedTriangle(tri);
             triangles.push_back(tri);
          }
          else {
