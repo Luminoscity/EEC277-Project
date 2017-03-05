@@ -101,6 +101,7 @@ float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 void MakeRightHandedTriangle(Triangle &tri);
+double TriangleArea(Triangle tri);
 TriList GetTriangles(ifstream &file, SystemInfo &sys);
 void CheckTriangleCoordinates(TriList &geometry);
 void CheckArgs(int argc, char *argv[]);
@@ -233,14 +234,20 @@ float Ei(Vertex triV1, Vertex triV2, Vertex pixel) {
 // and 0.0 - ScreenHeight for y, both rounded to the nearest 0.25 pixels
 void SnapToGrid(TriList &geometry, SystemInfo sys) {
    const float snapFactor = 4.0; // the maximum allowed fraction of a pixel length
-   for (auto& tri : geometry) {
-      for (auto& vert : tri.v) {
+   vector<TriList::iterator> toErase;
+   for (TriList::iterator it = geometry.begin(); it != geometry.end(); it++) {
+      for (auto& vert : it->v) {
          uint32_t scaledXCoord = UCAST(vert.x * snapFactor * sys.screenW + 0.5);
          uint32_t scaledYCoord = UCAST(vert.y * snapFactor * sys.screenH + 0.5);
          vert.x = FCAST(scaledXCoord) / snapFactor;
          vert.y = FCAST(scaledYCoord) / snapFactor;
+         if (TriangleArea(*it) == 0.0)
+            toErase.push_back(it);
       }
    }
+   
+   for (auto& toDel : toErase)      //erase all zero area triangles
+      geometry.erase(toDel);
 }
 
 // converts a 32-bit integer representation of a coor value to a Color type
@@ -272,6 +279,13 @@ void MakeRightHandedTriangle(Triangle &tri) {
 
    assert((tri.v[1].y - tri.v[0].y) * (tri.v[2].x - tri.v[1].x) >=
           (tri.v[1].x - tri.v[0].x) * (tri.v[2].y - tri.v[1].y));
+}
+
+// returns area of the triangle
+double TriangleArea(Triangle tri) {
+   return abs((tri.v[0].x * (tri.v[1].y - tri.v[2].y) +
+               tri.v[2].x * (tri.v[3].y - tri.v[0].y) +
+               tri.v[3].x * (tri.v[0].y - tri.v[1].y)) / 2.0);
 }
 
 // reads all the triangle vertex coordinates from a file
