@@ -102,8 +102,8 @@ float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 void MakeRightHandedTriangle(Triangle &tri);
-bool isAreaZero(Triangle);
 double TriangleArea(Triangle tri);
+bool isAreaZero(Triangle);
 TriList GetTriangles(ifstream &file, SystemInfo &sys);
 void CheckTriangleCoordinates(TriList &geometry);
 void CheckArgs(int argc, char *argv[]);
@@ -265,21 +265,36 @@ Color HexToColor(uint32_t hex) {
 
 // rearranges the order of the vertices so that going from vertex 1 to 2 to 3
 // forms a triangle in a counter-clockwise direction (right-handed)
+// and so that the first vertex has the lowest y value
+// for a tie, the vertex closest to the origin will used for the first vertex
 void MakeRightHandedTriangle(Triangle &tri) {
    Vertex vert;
+   int lowestV = 0;
+
+   for (int i = 1; i < 3; ++i)
+      if (tri.v[i].y < tri.v[lowestV].y ||
+         (tri.v[i].y == tri.v[lowestV].y && tri.v[i].x < tri.v[lowestV].x)) {
+         lowestV = i;
+      }
+
+   // make the first vertex the lowest vertex
+   vert = tri.v[0];
+   tri.v[0] = tri.v[lowestV];
+   tri.v[lowestV] = vert;
+
    float ax = tri.v[1].x - tri.v[0].x,
          ay = tri.v[1].y - tri.v[0].y,
          bx = tri.v[2].x - tri.v[1].x,
          by = tri.v[2].y - tri.v[1].y;
 
-   if (ay * bx < ax * by) {  //cross product
+   if (ax * by < ay * bx) {  //cross product
       vert = tri.v[1];
       tri.v[1] = tri.v[2];
       tri.v[2] = vert;
    }
 
-   assert((tri.v[1].y - tri.v[0].y) * (tri.v[2].x - tri.v[1].x) >=
-          (tri.v[1].x - tri.v[0].x) * (tri.v[2].y - tri.v[1].y));
+   assert((tri.v[1].x - tri.v[0].x) * (tri.v[2].y - tri.v[1].y) >=
+          (tri.v[1].y - tri.v[0].y) * (tri.v[2].x - tri.v[1].x));
 }
 
 // returns area of the triangle
