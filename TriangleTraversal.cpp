@@ -8,6 +8,9 @@
  * against an inputted set of triangle vertex coordinates:
  * Scanline, Backtrack, ZigZag
  */
+
+/* Crow's Algorithm Credit: Michigan State University
+   www.cse.msu.edu/~cse872/rasterization */
 #pragma endregion
 
 #pragma region Includes
@@ -78,27 +81,33 @@ typedef struct Triangle {
 
 typedef vector<Triangle> TriList;
 typedef vector<Fragment> FragList;
-typedef unsigned (*TestPtr)(const TriList &, FragList &, SystemInfo);
+typedef unsigned (*TestPtr)(const TriList &, vector<FragList> &, SystemInfo);
 #pragma endregion
 
 #pragma region Declarations
 #define TIME(__startTime) (((float)clock() - (float)(__startTime)) / CLOCKS_PER_SEC)
 #define UCAST(__x) (static_cast<uint32_t>(__x))
 #define FCAST(__x) (static_cast<float>(__x))
+#define ICAST(__x) (static_cast<int>(__x))
+#define BCAST(__x) (static_cast<uint8_t>(__x))
 #define NUM_TESTS 3
 #define RED_OFFSET 24
 #define GRN_OFFSET 16
 #define BLU_OFFSET 8
 
-unsigned TestScanline(const TriList &geometry, FragList &fragments,
+unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
                       SystemInfo sys);
-unsigned TestZigZag(const TriList &geometry, FragList &fragments,
+unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                     SystemInfo sys);
-unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
+unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
                        SystemInfo sys);
-float dX(Vertex v1, Vertex v2);
+/*float dX(Vertex v1, Vertex v2);
 float dY(Vertex v1, Vertex v2);
-float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
+float Ei(Vertex triV1, Vertex triV2, Vertex pixel);*/
+void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
+        float f);
+void increment(Vertex &vert, Vertex &dV);
+unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 void MakeRightHandedTriangle(Triangle &tri);
@@ -155,18 +164,39 @@ int main(int argc, char *argv[]) {
    TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
    string testStrings[] = {"Scanline", "Backtrack", "ZigZag"};
    int test = atoi(argv[4]);
-   FragList outputs[NUM_TESTS];
+   vector<FragList> outputs[NUM_TESTS];
    unsigned results[NUM_TESTS];
    if (test == 0) {
       for (int i = 0; i < NUM_TESTS; ++i) {
          results[i] = tests[i](geometry, outputs[i], sys);
+         if (sys.printDebug) {
+            printf("%0.3fs: Running Test: ", TIME(t1));
+            cout << testStrings[i] << "\n";
+            printf("%0.3fs:  ", TIME(t1));
+         }
          cout << "Overdraw for " << testStrings[i] << ": " << results[i]
               << "\n";
+         if (sys.printDebug) {
+            printf("------------Fragments------------\n");
+            for (unsigned t = 0; t < outputs[i].size(); ++t) {
+               printf("Triangle %d\n", t);
+               for (unsigned frag = 0; frag < outputs[i][t].size(); ++frag)
+                  printf("---Fragment %3d: x=%-3u y=%-3u c=%02X %02X %02X %02X"
+                    "\n", frag, outputs[i][t][frag].x, outputs[i][t][frag].y,
+                    outputs[i][t][frag].color.r, outputs[i][t][frag].color.g,
+                    outputs[i][t][frag].color.b, outputs[i][t][frag].color.a);
+            }
+            printf("\n");
+         }
       }
    }
    else {
       --test;
       results[test] = tests[test](geometry, outputs[test], sys);
+      if (sys.printDebug) {
+         printf("%0.3fs: Running Test: ", TIME(t1));
+         cout << testStrings[test] << "\n";
+      }
       cout << "Overdraw for " << testStrings[test] << ": " << results[test]
            << "\n";
    }
@@ -182,27 +212,54 @@ int main(int argc, char *argv[]) {
 // to top using left-to-right scanlines beginning at the left edges
 // The first vertex is already in place to be determine the first pixel we
 // check because of MakeRrightHandedTriangle.
-unsigned TestScanline(const TriList &geometry, FragList &fragments,
+// Code based on Michigan State University's psudocode
+// for Crow's Algorithm   www.cse.msu.edu/~cse872/rasterization
+unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
                       SystemInfo sys) {
    unsigned overdraw = 0;
-   // master edge is the edge that will be used for all scanlines
-   // since it spans the entire height of the triangle
-   int mev1 = 0,  //master edge bottom vertex
-       mev2;      //master edge top vertex
-   float mEi,     //master edge insidedness
-         oEi,     //opposite edge insidedness
-         mdX,     //master edge dX
-         mdY,     //master edge dY
-         odX,     //opposite edge dX
-         odY;     //opposite edge dY
+   int li, ri;    //left and right upper endpoint indices
+   int ly, ry;  //left and right upper endpoint y values
+   Vertex l, dl;  //current left edge and dX
+   Vertex r, dr;  //current right edge and dX
+   int y;       //current scanline
 
    for (auto& tri : geometry) {  //compute fragments for every triangle
-      if (tri.v[2].y - tri.v[0].y > tri.v[1].y - tri.v[0].y)
-         mev2 = 2;
-      else
-         mev2 = 1;
+      int i = 0;     //lowest vertex index (setup in MakeRightHandedTriangle)
+      li = ri = i;
+      ly = ry = y = ICAST(tri.v[i].y) + 1;
+      FragList thisTriangle;                 //fragments for this triangle
+      fragments.push_back(thisTriangle);     //add to list of all fragments
 
       //scanline algorithm
+      for (int remain = 3; remain > 0;) {
+         while (ly <= y &&  remain > 0) {    //find next left edge
+            --remain;
+            //clockwise since triangle is specified in right-handed order
+            i = (li - 1 < 0) ? 2 : li - i;   
+            ly = ICAST(tri.v[i].y) + 1;
+            if (ly > y)    //replace left edge
+               Ei(tri.v[li], tri.v[i], l, dl, tri.v[i].y - tri.v[li].y,
+                  y - tri.v[li].y);
+            li = i;
+         }
+         while (ry <= y &&  remain > 0) {    //find next right edge
+            --remain;
+            //counter-clockwise since triangle is in right-handed order
+            i = (ri + 1) % 3;
+            ry = ICAST(tri.v[i].y) + 1;
+            if (ry > y)    //replace right edge
+               Ei(tri.v[ri], tri.v[i], r, dr, tri.v[i].y - tri.v[ri].y,
+                  y - tri.v[ri].y);
+            ri = i;
+         }
+
+         for (; y < ly && y < ry; ++y) {     //draw spans
+            //scan and interpolate by edges
+            overdraw += scanX(l, r, y, fragments.back());
+            increment(l, dl);
+            increment(r, dr);
+         }
+      }
    }
    
    return overdraw;
@@ -210,7 +267,7 @@ unsigned TestScanline(const TriList &geometry, FragList &fragments,
 
 //
 //
-unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
+unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
                        SystemInfo sys) {
    unsigned overdraw = 0;
    
@@ -219,7 +276,7 @@ unsigned TestBacktrack(const TriList &geometry, FragList &fragments,
 
 //
 //
-unsigned TestZigZag(const TriList &geometry, FragList &fragments,
+unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                     SystemInfo sys) {
    unsigned overdraw = 0;
    
@@ -228,7 +285,7 @@ unsigned TestZigZag(const TriList &geometry, FragList &fragments,
 #pragma endregion
 
 #pragma region Test Related Functions
-float dX(Vertex v1, Vertex v2) {
+/*float dX(Vertex v1, Vertex v2) {
    return v2.x - v1.x;
 }
 
@@ -239,6 +296,49 @@ float dY(Vertex v1, Vertex v2) {
 float Ei(Vertex triV1, Vertex triV2, Vertex pixel) {
    return (pixel.x - triV1.x) * (triV2.y - triV1.y) -
           (pixel.y - triV1.y) * (triV2.x - triV1.x);
+}*/
+
+void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
+        float f) {
+   dEi.x = (v2.x - v1.x) / d;
+   Ei.x = v1.x + f * dEi.x;
+   dEi.color.r = BCAST((v2.color.r - v1.color.r) / d);
+   Ei.color.r = BCAST(v1.color.r + f * dEi.color.r);
+   dEi.color.g = BCAST((v2.color.g - v1.color.g) / d);
+   Ei.color.g = BCAST(v1.color.g + f * dEi.color.g);
+   dEi.color.b = BCAST((v2.color.b - v1.color.b) / d);
+   Ei.color.b = BCAST(v1.color.b + f * dEi.color.b);
+   dEi.color.a = BCAST((v2.color.a - v1.color.a) / d);
+   Ei.color.a = BCAST(v1.color.a + f * dEi.color.a);
+}
+
+void increment(Vertex &vert, Vertex &dV) {
+   vert.x += dV.x;
+   vert.color.r += dV.color.r;
+   vert.color.g += dV.color.g;
+   vert.color.b += dV.color.b;
+   vert.color.a += dV.color.a;
+}
+
+unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out) {
+   unsigned overdraw = 0;
+   int x,
+       lx = ICAST(left.x) + 1,
+       rx = ICAST(right.x) + 1;
+   Vertex s, ds;
+
+   if (lx < rx) {
+      Ei(left, right, s, ds, right.x - left.x, lx - left.x);
+      for (x = lx; x < rx; ++x) {
+         Fragment frag = {UCAST(x), UCAST(y), s.color};
+         out.push_back(frag);
+         increment(s, ds);
+      }
+   }
+   else
+      ++overdraw;
+
+   return overdraw;
 }
 #pragma endregion
 
