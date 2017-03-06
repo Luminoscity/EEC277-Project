@@ -516,7 +516,7 @@ void CheckArgs(int argc, char *argv[]){
    const int numTests = 3;
    if (argc < 5 || argc > 6) {
       fprintf(stderr, "Usage: %s geometryFile screenWidth screenHeight testNum"
-              "[debugY/N]\n%s", argv[0], tests);
+              " [debugY/N]\n%s", argv[0], tests);
       exit(-1);
    }
    ifstream file1(argv[1]);
