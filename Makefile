@@ -2,12 +2,12 @@
 # for compiling outside of Visual Studio
 
 CC = g++
-CFLAGS = -g -Wall -std=c++0x
+CFLAGS = -g -Wall -Wno-unknown-pragmas -Werror -std=c++0x
 
 LIBS += -lstdc++
 
-ALL = TriangleTraversal 
-#ALL = TriangleTraversal genTris GrabTriangles 
+ALL = TriangleTraversal
+#ALL = TriangleTraversal genTris GrabTriangles
 
 all: $(ALL)
 

@@ -101,9 +101,9 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                     SystemInfo sys);
 unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
                        SystemInfo sys);
-/*float dX(Vertex v1, Vertex v2);
+float dX(Vertex v1, Vertex v2);
 float dY(Vertex v1, Vertex v2);
-float Ei(Vertex triV1, Vertex triV2, Vertex pixel);*/
+float Ei(Vertex triV1, Vertex triV2, Vertex pixel);
 void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
         float f);
 void increment(Vertex &vert, Vertex &dV);
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
         << "Debug Output: " << (sys.printDebug ? "Yes\n" : "No\n");
 
    SnapToGrid(geometry, sys);    //geometry modified
-   
+
 
    if (sys.printDebug) {
       printf("\n-----------------INPUT------------------------"
@@ -159,7 +159,8 @@ int main(int argc, char *argv[]) {
    }
 
    // remove all zero area triangles
-   geometry.erase(std::remove_if(geometry.begin(), geometry.end(), isAreaZero), geometry.end());
+   geometry.erase(std::remove_if(geometry.begin(), geometry.end(), isAreaZero),
+                  geometry.end());
 
    TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
    string testStrings[] = {"Scanline", "Backtrack", "ZigZag"};
@@ -218,10 +219,10 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
                       SystemInfo sys) {
    unsigned overdraw = 0;
    int li, ri;    //left and right upper endpoint indices
-   int ly, ry;  //left and right upper endpoint y values
+   int ly, ry;    //left and right upper endpoint y values
    Vertex l, dl;  //current left edge and dX
    Vertex r, dr;  //current right edge and dX
-   int y;       //current scanline
+   int y;         //current scanline
 
    for (auto& tri : geometry) {  //compute fragments for every triangle
       int i = 0;     //lowest vertex index (setup in MakeRightHandedTriangle)
@@ -235,7 +236,7 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
          while (ly <= y &&  remain > 0) {    //find next left edge
             --remain;
             //clockwise since triangle is specified in right-handed order
-            i = (li - 1 < 0) ? 2 : li - i;   
+            i = (li - 1 < 0) ? 2 : li - i;
             ly = ICAST(tri.v[i].y) + 1;
             if (ly > y)    //replace left edge
                Ei(tri.v[li], tri.v[i], l, dl, tri.v[i].y - tri.v[li].y,
@@ -255,13 +256,13 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
 
          for (; y < ly && y < ry; ++y) {     //draw spans
             //scan and interpolate by edges
-            overdraw += scanX(l, r, y, fragments.back());
+            overdraw += scanX(l, r, y-1, fragments.back());
             increment(l, dl);
             increment(r, dr);
          }
       }
    }
-   
+
    return overdraw;
 }
 
@@ -270,7 +271,7 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
 unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
                        SystemInfo sys) {
    unsigned overdraw = 0;
-   
+
    return overdraw;
 }
 
@@ -279,13 +280,15 @@ unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
 unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                     SystemInfo sys) {
    unsigned overdraw = 0;
-   
+
+    
+
    return overdraw;
 }
 #pragma endregion
 
 #pragma region Test Related Functions
-/*float dX(Vertex v1, Vertex v2) {
+float dX(Vertex v1, Vertex v2) {
    return v2.x - v1.x;
 }
 
@@ -296,7 +299,7 @@ float dY(Vertex v1, Vertex v2) {
 float Ei(Vertex triV1, Vertex triV2, Vertex pixel) {
    return (pixel.x - triV1.x) * (triV2.y - triV1.y) -
           (pixel.y - triV1.y) * (triV2.x - triV1.x);
-}*/
+}
 
 void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
         float f) {
@@ -323,8 +326,8 @@ void increment(Vertex &vert, Vertex &dV) {
 unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out) {
    unsigned overdraw = 0;
    int x,
-       lx = ICAST(left.x) + 1,
-       rx = ICAST(right.x) + 1;
+       lx = ICAST(left.x),
+       rx = ICAST(right.x);
    Vertex s, ds;
 
    if (lx < rx) {
@@ -343,8 +346,8 @@ unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out) {
 #pragma endregion
 
 #pragma region Helper Functions
-// Changes the given list of triangles so that each vertex lies on a grid location
-// each pixel location has 25 allowed vertex coordinates
+// Changes the given list of triangles so that each vertex lies on a grid
+// location each pixel location has 25 allowed vertex coordinates
 // X---X---X---X---X
 // |               |
 // X   X   X   X   X
@@ -358,7 +361,7 @@ unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out) {
 // Output vertex coordinates will be on the scale 0.0 - ScreenWidth for x
 // and 0.0 - ScreenHeight for y, both rounded to the nearest 0.25 pixels
 void SnapToGrid(TriList &geometry, SystemInfo sys) {
-   const float snapFactor = 4.0; // the maximum allowed fraction of a pixel length
+   const float snapFactor = 4.0; // maximum allowed fraction of a pixel length
    vector<TriList::iterator> toErase;
    for (TriList::iterator it = geometry.begin(); it != geometry.end(); it++) {
       for (auto& vert : it->v) {
@@ -428,7 +431,7 @@ bool isAreaZero(Triangle tri) {
 }
 
 // reads all the triangle vertex coordinates from a file
-// expects disjoint format (3 vertices at a time): 
+// expects disjoint format (3 vertices at a time):
 // 0.0456 0.1789 FF0000FF, 0.2452 0.3123 00FF00FF, 0.4789 0.5675 0000FFFF
 // and strips format (1 vertex at a time):
 // 0.0456 0.1789 FF0000FF
@@ -440,7 +443,7 @@ TriList GetTriangles(ifstream &file, SystemInfo &sys) {
    string line;
    getline(file, line);
    sys.disjoint = toupper(line[0]) == 'D';
-   
+
    if (sys.disjoint) {
       while (getline(file, line)) {
          if (line.find(",") == string::npos) {
