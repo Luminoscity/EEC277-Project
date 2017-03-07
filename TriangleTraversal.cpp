@@ -176,12 +176,13 @@ int main(int argc, char *argv[]) {
    unsigned results[NUM_TESTS];
    if (test == 0) {
       for (int i = 0; i < NUM_TESTS; ++i) {
-         results[i] = tests[i](geometry, outputs[i], sys);
          if (sys.printDebug) {
             printf("%0.3fs: Running Test: ", TIME(t1));
             cout << testStrings[i] << "\n";
-            printf("%0.3fs:  ", TIME(t1));
          }
+         results[i] = tests[i](geometry, outputs[i], sys);
+         if (sys.printDebug)
+            printf("%0.3fs:  ", TIME(t1));
          cout << "Overdraw for " << testStrings[i] << ": " << results[i]
               << "\n";
          if (sys.printDebug) {
@@ -200,11 +201,13 @@ int main(int argc, char *argv[]) {
    }
    else {
       --test;
-      results[test] = tests[test](geometry, outputs[test], sys);
       if (sys.printDebug) {
          printf("%0.3fs: Running Test: ", TIME(t1));
          cout << testStrings[test] << "\n";
       }
+      results[test] = tests[test](geometry, outputs[test], sys);
+      if (sys.printDebug)
+         printf("%0.3fs:  ", TIME(t1));
       cout << "Overdraw for " << testStrings[test] << ": " << results[test]
            << "\n";
    }
@@ -315,9 +318,9 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (li - 1 < 0) ? 2 : li - i;
             ly = ICAST(tri.v[i].y) + 1;
             if (ly > y) {    //replace left edge
-               inside.l_Ei = Ei(tri.v[li], tri.v[i], x, y);
-               inside.l_dX = tri.v[i].x - tri.v[li].x;
-               inside.l_dY = tri.v[i].y - tri.v[li].y;
+               inside.l_Ei = Ei(tri.v[i], tri.v[li], x-1, y-1);
+               inside.l_dX = tri.v[li].x - tri.v[i].x;
+               inside.l_dY = tri.v[li].y - tri.v[i].y;
                Ei(tri.v[li], tri.v[i], l, dl, inside.l_dY, y - tri.v[li].y);
             }
             li = i;
@@ -328,7 +331,7 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (ri + 1) % 3;
             ry = ICAST(tri.v[i].y) + 1;
             if (ry > y) {   //replace right edge
-               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x, y);
+               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x-1, y-1);
                inside.r_dX = tri.v[i].x - tri.v[ri].x;
                inside.r_dY = tri.v[i].y - tri.v[ri].y;
                Ei(tri.v[ri], tri.v[i], r, dr, inside.r_dY, y - tri.v[ri].y);
