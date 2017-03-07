@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
          }
          results[i] = tests[i](geometry, outputs[i], sys);
          if (sys.printDebug)
-            printf("%0.3fs:  ", TIME(t1));
+            printf("%0.3fs: ", TIME(t1));
          cout << "Overdraw for " << testStrings[i] << ": " << results[i]
               << "\n";
          if (sys.printDebug) {
@@ -321,7 +321,7 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                inside.l_Ei = Ei(tri.v[i], tri.v[li], x-0.5, y-0.5);
                inside.l_dX = tri.v[li].x - tri.v[i].x;
                inside.l_dY = tri.v[li].y - tri.v[i].y;
-               Ei(tri.v[li], tri.v[i], l, dl, inside.l_dY, y - tri.v[li].y);
+               Ei(tri.v[li], tri.v[i], l, dl, -inside.l_dY, y - tri.v[li].y);
             }
             li = i;
          }
