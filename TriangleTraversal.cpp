@@ -108,7 +108,7 @@ unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
 /*float dX(Vertex v1, Vertex v2);
 float dY(Vertex v1, Vertex v2);*/
 void decrement(Vertex &vert, Vertex &dV);
-float Ei(const Vertex &v1, const Vertex &v2, int x, int y);
+float Ei(const Vertex &v1, const Vertex &v2, float x, float y);
 unsigned zigzag(const Vertex &left, const Vertex &right, int &x, int y,
                 Inside &Ei, bool toRight, FragList &out);
 void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
@@ -318,7 +318,7 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (li - 1 < 0) ? 2 : li - i;
             ly = ICAST(tri.v[i].y) + 1;
             if (ly > y) {    //replace left edge
-               inside.l_Ei = Ei(tri.v[i], tri.v[li], x-1, y-1);
+               inside.l_Ei = Ei(tri.v[i], tri.v[li], x-0.5, y-0.5);
                inside.l_dX = tri.v[li].x - tri.v[i].x;
                inside.l_dY = tri.v[li].y - tri.v[i].y;
                Ei(tri.v[li], tri.v[i], l, dl, inside.l_dY, y - tri.v[li].y);
@@ -331,7 +331,7 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (ri + 1) % 3;
             ry = ICAST(tri.v[i].y) + 1;
             if (ry > y) {   //replace right edge
-               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x-1, y-1);
+               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x-0.5, y-0.5);
                inside.r_dX = tri.v[i].x - tri.v[ri].x;
                inside.r_dY = tri.v[i].y - tri.v[ri].y;
                Ei(tri.v[ri], tri.v[i], r, dr, inside.r_dY, y - tri.v[ri].y);
@@ -345,8 +345,8 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             overdraw += zigzag(l, r, x, y, inside, toRight, fragments.back());
             increment(l, dl);            //increment left color interpolant
             increment(r, dr);            //increment right color interpolant
-            inside.l_Ei += inside.l_dX;  //increment left edge Ei(x, y+1)
-            inside.r_Ei += inside.r_dX;  //increment right edge Ei(x, y+1)
+            inside.l_Ei -= inside.l_dX;  //increment left edge Ei(x, y+1)
+            inside.r_Ei -= inside.r_dX;  //increment right edge Ei(x, y+1)
             toRight = !toRight;
          }
       }
@@ -373,7 +373,7 @@ void decrement(Vertex &vert, Vertex &dV) {
    vert.color.a -= dV.color.a;
 }
 
-float Ei(const Vertex &v1, const Vertex &v2, int x, int y) {
+float Ei(const Vertex &v1, const Vertex &v2, float x, float y) {
    return (x - v1.x) * (v2.y - v1.y) - (y - v1.y) * (v2.x - v1.x);
 }
 
