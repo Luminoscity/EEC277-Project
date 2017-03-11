@@ -109,12 +109,14 @@ unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
 float dY(Vertex v1, Vertex v2);*/
 void decrement(Vertex &vert, Vertex &dV);
 float Ei(const Vertex &v1, const Vertex &v2, float x, float y);
+unsigned backtrack(const Vertex &left, const Vertex &right, int &x, int y,
+                   Inside &inside, FragList &out);
 unsigned zigzag(const Vertex &left, const Vertex &right, int &x, int y,
                 Inside &Ei, bool toRight, FragList &out);
 void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
         float f);
 void increment(Vertex &vert, Vertex &dV);
-unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out);
+unsigned scanline(const Vertex &left, const Vertex &right, int y, FragList &out);
 void SnapToGrid(TriList &geometry, SystemInfo sys);
 Color HexToColor(uint32_t hex);
 void MakeRightHandedTriangle(Triangle &tri);
@@ -266,7 +268,7 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
 
          for (; y < ly && y < ry; ++y) {     //draw spans
             //scan and interpolate by edges
-            overdraw += scanX(l, r, y-1, fragments.back());
+            overdraw += scanline(l, r, y-1, fragments.back());
             increment(l, dl);
             increment(r, dr);
          }
@@ -276,20 +278,79 @@ unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
    return overdraw;
 }
 
-//
-//
+// Traverses the triangle from bottom to top, left to right only in each row
+// Must find the far left edge every time a new row is processed
 unsigned TestBacktrack(const TriList &geometry, vector<FragList> &fragments,
                        SystemInfo sys) {
    unsigned overdraw = 0;
+   int li, ri;    //left and right upper endpoint indices
+   int ly, ry;    //left and right upper endpoint y values
+   Vertex l,      //color interpolant for left edge
+          dl;     //dY for color
+   Vertex r,      //color interpolant for right edge
+          dr;     //dY for color
+   int x, y;      //current colomn and row
+   Inside inside;
+
+   for (auto& tri : geometry) {  //compute fragments for every triangle
+      int i = 0;     //lowest vertex index (setup in MakeRightHandedTriangle)
+      li = ri = i;
+      ly = ry = y = ICAST(tri.v[i].y) + 1;
+      x = ICAST(tri.v[i].x) + 1;
+      FragList thisTriangle;                 //fragments for this triangle
+      fragments.push_back(thisTriangle);     //add to list of all fragments
+
+      for (int remain = 3; remain > 0;) {
+         while (ly <= y &&  remain > 0) {    //find next left edge
+            --remain;
+            //clockwise since triangle is specified in right-handed ordr
+            i = (li - 1 < 0) ? 2 : li - i;
+            ly = ICAST(tri.v[i].y) + 1;
+            if (ly > y) {    //replace left edge
+               inside.l_Ei = Ei(tri.v[i], tri.v[li], x - FCAST(0.5),
+                                y - FCAST(0.5));
+               inside.l_dX = tri.v[li].x - tri.v[i].x;
+               inside.l_dY = tri.v[li].y - tri.v[i].y;
+               Ei(tri.v[li], tri.v[i], l, dl, -inside.l_dY, y - tri.v[li].y);
+            }
+            li = i;
+         }
+         while (ry <= y &&  remain > 0) {    //find next right edge
+            --remain;
+            //counter-clockwise since triangle is in right-handed ordr
+            i = (ri + 1) % 3;
+            ry = ICAST(tri.v[i].y) + 1;
+            if (ry > y) {   //replace right edge
+               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x - FCAST(0.5),
+                                y - FCAST(0.5));
+               inside.r_dX = tri.v[i].x - tri.v[ri].x;
+               inside.r_dY = tri.v[i].y - tri.v[ri].y;
+               Ei(tri.v[ri], tri.v[i], r, dr, inside.r_dY, y - tri.v[ri].y);
+            }
+            ri = i;
+         }
+
+         for (; y < ly && y < ry; ++y) { //while left edge and right edge are
+                                         //endpoints of current horizonal row
+                                         //scan and interpolate by edges
+            overdraw += backtrack(l, r, x, y, inside, fragments.back());
+            increment(l, dl);            //increment left color interpolant
+            increment(r, dr);            //increment right color interpolant
+            inside.l_Ei -= inside.l_dX;  //increment left edge Ei(x, y+1)
+            inside.r_Ei -= inside.r_dX;  //increment right edge Ei(x, y+1)
+         }
+      }
+   }
 
    return overdraw;
 }
 
-//
+// Traverses the triangle from bottom to top, first right, then left,
+// then right, and so on, changing directions for each new row.
 // Seems more complicated thn the Scanline algorithm, but that is only because
 // we kept all the color interpolation logic the same and added the
-// insidedness testing logic, ignoring the pre-calculated x edge boundaries that
-// come with the color interpolation logic
+// insidedness testing logic, ignoring the pre-calculated x edge boundaries
+// that come with the color interpolation logic
 unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
                     SystemInfo sys) {
    unsigned overdraw = 0;
@@ -318,7 +379,8 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (li - 1 < 0) ? 2 : li - i;
             ly = ICAST(tri.v[i].y) + 1;
             if (ly > y) {    //replace left edge
-               inside.l_Ei = Ei(tri.v[i], tri.v[li], x-0.5, y-0.5);
+               inside.l_Ei = Ei(tri.v[i], tri.v[li], x - FCAST(0.5),
+                                y - FCAST(0.5));
                inside.l_dX = tri.v[li].x - tri.v[i].x;
                inside.l_dY = tri.v[li].y - tri.v[i].y;
                Ei(tri.v[li], tri.v[i], l, dl, -inside.l_dY, y - tri.v[li].y);
@@ -331,7 +393,8 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
             i = (ri + 1) % 3;
             ry = ICAST(tri.v[i].y) + 1;
             if (ry > y) {   //replace right edge
-               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x-0.5, y-0.5);
+               inside.r_Ei = Ei(tri.v[ri], tri.v[i], x - FCAST(0.5),
+                                y - FCAST(0.5));
                inside.r_dX = tri.v[i].x - tri.v[ri].x;
                inside.r_dY = tri.v[i].y - tri.v[ri].y;
                Ei(tri.v[ri], tri.v[i], r, dr, inside.r_dY, y - tri.v[ri].y);
@@ -357,24 +420,47 @@ unsigned TestZigZag(const TriList &geometry, vector<FragList> &fragments,
 #pragma endregion
 
 #pragma region Test Related Functions
-/*float dX(Vertex v1, Vertex v2) {
-   return v2.x - v1.x;
-}
-
-float dY(Vertex v1, Vertex v2) {
-   return v2.y - v1.y;
-}*/
-
-void decrement(Vertex &vert, Vertex &dV) {
-   vert.x -= dV.x;
-   vert.color.r -= dV.color.r;
-   vert.color.g -= dV.color.g;
-   vert.color.b -= dV.color.b;
-   vert.color.a -= dV.color.a;
-}
-
+// Calulates the insidedness of pixel location x,y for the edge
+// connecting vertices v1 and v2
 float Ei(const Vertex &v1, const Vertex &v2, float x, float y) {
    return (x - v1.x) * (v2.y - v1.y) - (y - v1.y) * (v2.x - v1.x);
+}
+
+unsigned backtrack(const Vertex &left, const Vertex &right, int &x, int y,
+                   Inside &inside, FragList &out) {
+   unsigned overdraw = 0;      //overdraw for 
+   int lx = ICAST(left.x) + 1,
+       rx = ICAST(right.x) + 1;
+   Vertex s, ds;      //Interpolated color
+
+   if (inside.l_Ei <= 0.0) {   //within the bounds of the left edge
+      //find the x coordinate just inside of the left edge
+      for (; inside.l_Ei <= 0.0; --x) {
+         inside.l_Ei -= inside.l_dY;      //Ei(x-1, y) left
+         inside.r_Ei -= inside.r_dY;      //Ei(x-1, y) right
+         ++overdraw;  //checking insidedness, but not yet outputting fragments
+      }
+      inside.l_Ei += inside.l_dY;         //Ei(x+1, y) left
+      inside.r_Ei += inside.r_dY;         //Ei(x+1, y) right
+      ++x;     //go right to the first pixel center inside the triangle
+   }
+
+   //Interpolate color
+   Ei(left, right, s, ds, right.x - left.x, lx - left.x);
+   for (; inside.r_Ei < 0.0; ++x) {  //within the bounds of the right edge
+      if (inside.l_Ei <= 0.0) {
+         Fragment frag = { UCAST(x - 1), UCAST(y - 1), s.color };
+         out.push_back(frag);
+         increment(s, ds);           //increment color interpolants
+      }
+      else
+         ++overdraw; //started from pixel location to the left of the triangle
+      inside.l_Ei += inside.l_dY;
+      inside.r_Ei += inside.r_dY;
+   }
+   ++overdraw;    //stopped on a pixel we are not generating a fragment for
+
+   return overdraw;
 }
 
 unsigned zigzag(const Vertex &left, const Vertex &right, int &x, int y,
@@ -458,6 +544,17 @@ void Ei(const Vertex &v1, const Vertex &v2, Vertex &Ei, Vertex &dEi, float d,
    Ei.color.a = BCAST(v1.color.a + f * dEi.color.a);
 }
 
+// used by ZigZag to interpolate colors from right to left
+void decrement(Vertex &vert, Vertex &dV) {
+   vert.x -= dV.x;
+   vert.color.r -= dV.color.r;
+   vert.color.g -= dV.color.g;
+   vert.color.b -= dV.color.b;
+   vert.color.a -= dV.color.a;
+}
+
+// interpolate colors and insidedness one pixel position up or right
+// from current position
 void increment(Vertex &vert, Vertex &dV) {
    vert.x += dV.x;
    vert.color.r += dV.color.r;
@@ -466,7 +563,7 @@ void increment(Vertex &vert, Vertex &dV) {
    vert.color.a += dV.color.a;
 }
 
-unsigned scanX(const Vertex &left, const Vertex &right, int y, FragList &out) {
+unsigned scanline(const Vertex &left, const Vertex &right, int y, FragList &out) {
    unsigned overdraw = 0;
    int x,
        lx = ICAST(left.x),
