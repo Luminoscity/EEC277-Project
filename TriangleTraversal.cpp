@@ -147,100 +147,116 @@ int main(int argc, char *argv[]) {
 
   if (sys.pnt == P_CSV)
      cout << "Screen," << sys.screenW << "," << sys.screenH << "\n"
-          << "Data File,Triangle Type,Scanline,Backtrack,ZigZag\n";
+          << "Dataset,Triangle Type,Scanline,Backtrack,ZigZag\n";
   else
      cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
           << "Debug Output: " << (sys.pnt ? "Yes\n" : "No\n");
 
+  ifstream masterFile(argv[1]);
   string dataset;
-  testFileNames.push_back(argv[1]);
-  int fileIdx = 0;
-  ifstream testFile(testFileNames[fileIdx]);
-  getline(testFile, dataset);
-  TriList origGeometry = GetTriangles(testFile, sys);
-  TriList geometry = origGeometry;
-  CheckTriangleCoordinates(origGeometry);
-
-  SnapToGrid(geometry, sys);   //geometry modified
-
-
-  if (sys.pnt == P_DEBUG) {
-    printf("\n-----------------INPUT------------------------"
-         "----------------Snapped to Grid--------------\n");
-    TriList *og = &origGeometry;
-    TriList *g = &geometry;
-    for (unsigned i = 0; i < g->size(); ++i) {
-      printf("Triangle %-35d Triangle %d    ", i, i);
-      cout << "Area: " << TriangleArea((*g)[i]) << "\n";
-      for (int j = 0; j < 3; ++j)
-        printf("---Vertex %d: %8.6f %8.6f %02X %02X %02X %02X   "
-               "---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
-               j, (*og)[i].v[j].x, (*og)[i].v[j].y, (*og)[i].v[j].color.r,
-               (*og)[i].v[j].color.g, (*og)[i].v[j].color.b,
-               (*og)[i].v[j].color.a, j, (*g)[i].v[j].x, (*g)[i].v[j].y,
-               (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
-               (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
-    }
-    printf("\n");
+  while (getline(masterFile, dataset)) {
+    if (dataset[0] != '/' || dataset[1] != '/')
+      testFileNames.push_back(dataset);
   }
 
-  // remove all zero area triangles
-  geometry.erase(std::remove_if(geometry.begin(), geometry.end(), isAreaZero),
-            geometry.end());
+  for (unsigned fileIdx = 0; fileIdx < testFileNames.size(); ++fileIdx) {
+    ifstream testFile(testFileNames[fileIdx]);
+    if (!testFile.good()) {
+      std::cerr << "Could not open file: " << testFileNames[fileIdx] << "\n";
+      exit(-1);
+    }
+    getline(testFile, dataset);
+    TriList origGeometry = GetTriangles(testFile, sys);
+    TriList geometry = origGeometry;
+    CheckTriangleCoordinates(origGeometry);
 
-  TestPtr tests[] = {&TestScanline, &TestBacktrack, &TestZigZag};
-  int test = atoi(argv[4]);
-  vector<FragList> outputs[NUM_TESTS];
-  unsigned results[NUM_TESTS];
-  if (sys.pnt == P_CSV)
-    cout << dataset << ","
-         << (sys.disjoint ? "Disjoint," : "Strips,");
-  else
-    cout << "---------" << dataset << "---------\n"
-         << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
+    SnapToGrid(geometry, sys);   //geometry modified
 
-  if (test == 0) {
-    for (int i = 0; i < NUM_TESTS; ++i) {
+
+    if (sys.pnt == P_CSV)
+      cout << dataset << ","
+           << (sys.disjoint ? "Disjoint," : "Strips,");
+    else {
+      if (sys.pnt == P_DEBUG)
+        cout << "\n---------------------------------------------"
+             << "----------------------------------------------";
+
+      cout << "\n---------------" << dataset << "---------------\n"
+           << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
+    }
+
+    if (sys.pnt == P_DEBUG) {
+      printf("\n-----------------INPUT------------------------"
+        "----------------Snapped to Grid--------------\n");
+      TriList *og = &origGeometry;
+      TriList *g = &geometry;
+      for (unsigned i = 0; i < g->size(); ++i) {
+        printf("Triangle %-35d Triangle %d    ", i, i);
+        cout << "Area: " << TriangleArea((*g)[i]) << "\n";
+        for (int j = 0; j < 3; ++j)
+          printf("---Vertex %d: %8.6f %8.6f %02X %02X %02X %02X   "
+                 "---Vertex %d: %10.6f %10.6f %02X %02X %02X %02X\n",
+                 j, (*og)[i].v[j].x, (*og)[i].v[j].y, (*og)[i].v[j].color.r,
+                 (*og)[i].v[j].color.g, (*og)[i].v[j].color.b,
+                 (*og)[i].v[j].color.a, j, (*g)[i].v[j].x, (*g)[i].v[j].y,
+                 (*g)[i].v[j].color.r, (*g)[i].v[j].color.g,
+                 (*g)[i].v[j].color.b, (*g)[i].v[j].color.a);
+      }
+      printf("\n");
+    }
+
+    // remove all zero area triangles
+    geometry.erase(std::remove_if(geometry.begin(), geometry.end(),
+                   isAreaZero), geometry.end());
+
+    TestPtr tests[] = { &TestScanline, &TestBacktrack, &TestZigZag };
+    int test = atoi(argv[4]);
+    vector<FragList> outputs[NUM_TESTS];
+    unsigned results[NUM_TESTS];
+
+    if (test == 0) {
+      for (int i = 0; i < NUM_TESTS; ++i) {
+        if (sys.pnt == P_DEBUG) {
+          printf("%0.3fs: Running Test: ", TIME(t1));
+          cout << testStrings[i] << "\n";
+        }
+        results[i] = tests[i](geometry, outputs[i], sys);    //run the test
+        if (sys.pnt == P_DEBUG)
+          printf("%0.3fs: ", TIME(t1));
+        if (sys.pnt == P_CSV)
+          cout << results[i] << (i < NUM_TESTS - 1 ? "," : "\n");
+        else
+          cout << "Overdraw for " << testStrings[i] << ": " << results[i]
+               << "\n";
+        if (sys.pnt == P_DEBUG) {
+          printf("------------Fragments------------\n");
+          for (unsigned t = 0; t < outputs[i].size(); ++t) {
+            printf("Triangle %d\n", t);
+            for (unsigned frag = 0; frag < outputs[i][t].size(); ++frag)
+              printf("---Fragment %3d: x=%-3u y=%-3u c=%02X %02X %02X %02X"
+                    "\n", frag, outputs[i][t][frag].x, outputs[i][t][frag].y,
+                    outputs[i][t][frag].color.r, outputs[i][t][frag].color.g,
+                    outputs[i][t][frag].color.b, outputs[i][t][frag].color.a);
+          }
+          printf("\n");
+        }
+      }
+    }
+    else {
+      --test;
       if (sys.pnt == P_DEBUG) {
         printf("%0.3fs: Running Test: ", TIME(t1));
-        cout << testStrings[i] << "\n";
+        cout << testStrings[test] << "\n";
       }
-      results[i] = tests[i](geometry, outputs[i], sys);    //run the test
+      results[test] = tests[test](geometry, outputs[test], sys);  //run test
       if (sys.pnt == P_DEBUG)
-        printf("%0.3fs: ", TIME(t1));
+        printf("%0.3fs:  ", TIME(t1));
       if (sys.pnt == P_CSV)
-        cout << results[i] << (i < NUM_TESTS - 1 ? "," : "\n");
+        cout << testStrings[test] << "\n" << results[test] << "\n";
       else
-        cout << "Overdraw for " << testStrings[i] << ": " << results[i]
-             << "\n"; 
-      if (sys.pnt == P_DEBUG) {
-        printf("------------Fragments------------\n");
-        for (unsigned t = 0; t < outputs[i].size(); ++t) {
-          printf("Triangle %d\n", t);
-          for (unsigned frag = 0; frag < outputs[i][t].size(); ++frag)
-            printf("---Fragment %3d: x=%-3u y=%-3u c=%02X %02X %02X %02X"
-                   "\n", frag, outputs[i][t][frag].x, outputs[i][t][frag].y,
-                   outputs[i][t][frag].color.r, outputs[i][t][frag].color.g,
-                   outputs[i][t][frag].color.b, outputs[i][t][frag].color.a);
-        }
-        printf("\n");
-      }
+        cout << "Overdraw for " << testStrings[test] << ": " << results[test]
+             << "\n";
     }
-  }
-  else {
-    --test;
-    if (sys.pnt == P_DEBUG) {
-      printf("%0.3fs: Running Test: ", TIME(t1));
-      cout << testStrings[test] << "\n";
-    }
-    results[test] = tests[test](geometry, outputs[test], sys);  //run test
-    if (sys.pnt == P_DEBUG)
-      printf("%0.3fs:  ", TIME(t1));
-    if (sys.pnt == P_CSV)
-      cout << testStrings[test] << "\n" << results[test] << "\n";
-    else
-      cout << "Overdraw for " << testStrings[test] << ": " << results[test]
-           << "\n"; 
   }
 
   if (sys.pnt != P_CSV)
@@ -806,7 +822,8 @@ void CheckArgs(int argc, char *argv[]){
     exit(-1);
   }
   char printChar = toupper(argv[5][0]);
-  if (argc > 5 && !(printChar == 'D' || printChar == 'H' || printChar == 'C')) {
+  if (argc > 5 &&
+      !(printChar == 'D' || printChar == 'H' || printChar == 'C')) {
     fprintf(stderr, "Invalid output printing type: %s\nValid arguments:\n"
           "D(debug): full debug output\n"
           "H(human): abbriviated human-readable output\n"
