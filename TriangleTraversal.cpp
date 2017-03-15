@@ -102,6 +102,7 @@ typedef unsigned (*TestPtr)(const TriList &, vector<FragList> &, SystemInfo);
 #define RED_OFFSET 24
 #define GRN_OFFSET 16
 #define BLU_OFFSET 8
+#define PRINT_FRAGMENTS false
 
 unsigned TestScanline(const TriList &geometry, vector<FragList> &fragments,
                       SystemInfo sys);
@@ -146,7 +147,8 @@ int main(int argc, char *argv[]) {
   }
 
   if (sys.pnt == P_CSV)
-     cout << "Screen," << sys.screenW << "," << sys.screenH << "\n"
+     cout << "Screen Width,Screen Height" << "\n" << sys.screenW << ","
+          << sys.screenH << "\n"
           << "Dataset,Triangle Type,Scanline,Backtrack,ZigZag\n";
   else
      cout << "Screen: " << sys.screenW << " x " << sys.screenH << "\n"
@@ -228,7 +230,7 @@ int main(int argc, char *argv[]) {
         else
           cout << "Overdraw for " << testStrings[i] << ": " << results[i]
                << "\n";
-        if (sys.pnt == P_DEBUG) {
+        if (sys.pnt == P_DEBUG && PRINT_FRAGMENTS) {
           printf("------------Fragments------------\n");
           for (unsigned t = 0; t < outputs[i].size(); ++t) {
             printf("Triangle %d\n", t);
