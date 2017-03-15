@@ -37,6 +37,7 @@
 using std::string;
 using std::vector;
 using std::cout;
+using std::cerr;
 using std::setw;
 using std::ifstream;
 using std::ofstream;
@@ -164,13 +165,16 @@ int main(int argc, char *argv[]) {
   for (unsigned fileIdx = 0; fileIdx < testFileNames.size(); ++fileIdx) {
     ifstream testFile(testFileNames[fileIdx]);
     if (!testFile.good()) {
-      std::cerr << "Could not open file: " << testFileNames[fileIdx] << "\n";
+      cerr << "Could not open file: " << testFileNames[fileIdx] << "\n";
       exit(-1);
     }
     getline(testFile, dataset);
     TriList origGeometry = GetTriangles(testFile, sys);
     TriList geometry = origGeometry;
     CheckTriangleCoordinates(origGeometry);
+
+    fprintf(stderr, "%0.3fs: Running Dataset: ", TIME(t1));
+    cerr << dataset << "\n";
 
     SnapToGrid(geometry, sys);   //geometry modified
 
@@ -183,7 +187,7 @@ int main(int argc, char *argv[]) {
         cout << "\n---------------------------------------------"
              << "----------------------------------------------";
 
-      cout << "\n---------------" << dataset << "---------------\n"
+      cout << "---------------" << dataset << "---------------\n"
            << "Triangle Type: " << (sys.disjoint ? "Disjoint\n" : "Strips\n");
     }
 
@@ -222,6 +226,8 @@ int main(int argc, char *argv[]) {
           printf("%0.3fs: Running Test: ", TIME(t1));
           cout << testStrings[i] << "\n";
         }
+        fprintf(stderr, "%0.3fs: Running Test: ", TIME(t1));
+        cerr << testStrings[i] << "\n";
         results[i] = tests[i](geometry, outputs[i], sys);    //run the test
         if (sys.pnt == P_DEBUG)
           printf("%0.3fs: ", TIME(t1));
@@ -229,7 +235,7 @@ int main(int argc, char *argv[]) {
           cout << results[i] << (i < NUM_TESTS - 1 ? "," : "\n");
         else
           cout << "Overdraw for " << testStrings[i] << ": " << results[i]
-               << "\n";
+               << (i < NUM_TESTS - 1 ? "\n" : "\n\n");
         if (sys.pnt == P_DEBUG && PRINT_FRAGMENTS) {
           printf("------------Fragments------------\n");
           for (unsigned t = 0; t < outputs[i].size(); ++t) {
@@ -263,6 +269,7 @@ int main(int argc, char *argv[]) {
 
   if (sys.pnt != P_CSV)
     printf("%0.3fs: Done.\n", TIME(t1));
+  fprintf(stderr, "%0.3fs: Done.\n", TIME(t1));
 
   return 0;
 }
@@ -486,7 +493,7 @@ unsigned backtrack(const Vertex &left, const Vertex &right, int &x, int y,
     for (; inside.l_Ei <= 0.0; --x) {
       inside.l_Ei -= inside.l_dY;    //Ei(x-1, y) left
       inside.r_Ei -= inside.r_dY;    //Ei(x-1, y) right
-      ++overdraw;  //checking insidedness, but not yet outputting fragments
+      //++overdraw;  //checking insidedness, but not yet outputting fragments
     }
     inside.l_Ei += inside.l_dY;      //Ei(x+1, y) left
     inside.r_Ei += inside.r_dY;      //Ei(x+1, y) right
@@ -524,7 +531,7 @@ unsigned zigzag(const Vertex &left, const Vertex &right, int &x, int y,
       for (; inside.l_Ei <= 0.0; --x) {
         inside.l_Ei -= inside.l_dY;
         inside.r_Ei -= inside.r_dY;
-        ++overdraw;
+        //++overdraw;
       }
       inside.l_Ei += inside.l_dY;
       inside.r_Ei += inside.r_dY;
@@ -552,7 +559,7 @@ unsigned zigzag(const Vertex &left, const Vertex &right, int &x, int y,
       for (; inside.r_Ei < 0.0; ++x) {
         inside.l_Ei += inside.l_dY;
         inside.r_Ei += inside.r_dY;
-        ++overdraw;
+        //++overdraw;
       }
       inside.l_Ei -= inside.l_dY;
       inside.r_Ei -= inside.r_dY;
